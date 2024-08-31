@@ -1,5 +1,5 @@
-#ifndef micrograd_value_h
-#define micrograd_value_h
+#ifndef micrograd_engine_h
+#define micrograd_engine_h
 
 #include <stdio.h>
 
