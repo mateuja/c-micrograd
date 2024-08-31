@@ -38,7 +38,6 @@ Value* newValue(float data) {
 	val->grad = 0;
 	val->id = ID_COUNTER;
 	ID_COUNTER++;
-	val->backward = NULL;
 	initValueArray(&val->prev);
 
 	return val;
@@ -48,7 +47,7 @@ void freeValue(Value* val) {
 	val->data = 0;
 	val->grad = 0;
 	val->id = 0;
-	val->backward = NULL;
+	val->backward = BW_NULL;
 	freeValueArray(&val->prev);
 }
 
@@ -63,10 +62,14 @@ static void backwardAdd(Value* out, Value* fst, Value* snd)  {
 
 Value* vAdd(Value* self, Value* other) {
 	Value* out = newValue(self->data + other->data);
-	out->backward = backwardAdd;
+	out->backward = BW_ADD;
 	writeValueArray(&out->prev, self);
 	writeValueArray(&out->prev, other);
 	return out;
+}
+
+Value* vAddFloat(Value* self, float other) {
+	return vAdd(self, newValue(other));
 }
 
 static void backwardMul(Value* out, Value* fst, Value* snd) {
@@ -76,10 +79,14 @@ static void backwardMul(Value* out, Value* fst, Value* snd) {
 
 Value* vMul(Value* self, Value* other) {
 	Value* out = newValue(self->data * other->data);
-	out->backward = backwardMul;
+	out->backward = BW_MUL;
 	writeValueArray(&out->prev, self);
 	writeValueArray(&out->prev, other);
 	return out;
+}
+
+Value* vMulFloat(Value* self, float other) {
+	return vMul(self, newValue(other));
 }
 
 static void backwardPow(Value* out, Value* fst, Value* snd) {
@@ -88,21 +95,49 @@ static void backwardPow(Value* out, Value* fst, Value* snd) {
 
 Value* vPow(Value* self, Value* other) {
 	Value* out = newValue(pow(self->data, other->data));
-	out->backward = backwardPow;
+	out->backward = BW_POW;
 	writeValueArray(&out->prev, self);
 	writeValueArray(&out->prev, other);
 	return out;
 }
 
-static void backwardRelu(Value* out, Value* fst, Value* snd) {
+Value* vPowFloat(Value* self, float other) {
+	return vPow(self, newValue(other));
+}
+
+Value* vFloatPow(float self, Value* other) {
+	return vPow(newValue(self), other);
+}
+
+static void backwardRelu(Value* out, Value* fst) {
 	fst->grad += (out->data > 0 ? out->grad : 0);
 }
 
-Value* vRelu(Value* fst) {
-	Value* out = newValue(fst->data < 0 ? 0 : fst->data);
-	out->backward = backwardRelu;
-	writeValueArray(&out->prev, fst);
+Value* vRelu(Value* self) {
+	Value* out = newValue(self->data < 0 ? 0 : self->data);
+	out->backward = BW_RELU;
+	writeValueArray(&out->prev, self);
 	return out;
+}
+
+Value* vNeg(Value* self) {
+	return vMulFloat(self, -1.0);
+}
+
+Value* vSub(Value* self, Value* other) {
+	return vAdd(self, vNeg(other));
+}
+
+Value* vSubFloat(Value* self, float other) {
+	return vAddFloat(self, -other);
+}
+
+Value* vDiv(Value* self, Value* other) {
+	return vMul(self, vPowFloat(other, -1.0));
+}
+
+Value* vDivFloat(Value* self, float other) {
+	return vDiv(self, newValue(other));
 }
 
 static void buildTopo(Value* val, ValueArray* topo, bool* visited) {
@@ -129,18 +164,30 @@ void backward(Value* val) {
 	Value* currentVal;
 	for (int i=topo.count-1; i >= 0; i--) {
 		currentVal = topo.values[i];
-		
-		if (currentVal->backward == NULL) {
-			continue;
-		}
 
-		if (currentVal->prev.count == 1) {
-			currentVal->backward(currentVal, currentVal->prev.values[0], NULL);
-		} else if (currentVal->prev.count == 2) {
-			currentVal->backward(currentVal, currentVal->prev.values[0], currentVal->prev.values[1]);
-		} else {
-			fprintf(stderr, "ERROR! The number of prev is equal to %d\n", currentVal->prev.count);
-			exit(1);
+		switch (currentVal->backward) {
+			case BW_NULL:
+				continue;
+			case BW_ADD:
+				backwardAdd(
+					currentVal, currentVal->prev.values[0], currentVal->prev.values[1]
+				);
+				continue;
+			case BW_MUL:
+				backwardMul(
+					currentVal, currentVal->prev.values[0], currentVal->prev.values[1]
+				);
+				continue;
+			case BW_POW:
+				backwardPow(
+					currentVal, currentVal->prev.values[0], currentVal->prev.values[1]
+				);
+				continue;
+			case BW_RELU:
+				backwardRelu(
+					currentVal, currentVal->prev.values[0]
+				);
+				continue;
 		}
 	}
 }
