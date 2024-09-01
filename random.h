@@ -3,4 +3,6 @@
 
 float randomUniform(float min, float max);
 
+int* fisherYatesShuffle(int size);
+
 #endif

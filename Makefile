@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g
+# -fsanitize=address
 SRCDIR = .
 TARGETDIR = target
 

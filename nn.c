@@ -13,10 +13,10 @@ static Neuron* newNeuron(int nin, bool nonlin) {
 	initValueArray(&neuron->W);
 	
 	for (int i=0; i < nin; i++) {
-		Value* val = newValue(randomUniform(-1, 1));
+		Value* val = newValue(randomUniform(-1.0, 1.0));
 		writeValueArray(&neuron->W, val);
 	}
-	neuron->b = newValue(0);
+	neuron->b = newValue(0.0);
 
 	return neuron;
 }
@@ -45,6 +45,8 @@ static Value* forwardNeuron(Neuron* neuron, ValueArray* x) {
 
 static ValueArray* paramsNeuron(Neuron* neuron) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
+	initValueArray(array);
+
 	for (int i=0; i < neuron->nin; i++) {
 		writeValueArray(array, neuron->W.values[i]);
 	}
@@ -116,7 +118,7 @@ static ValueArray* paramsLayer(Layer* layer) {
 		for (int j=0; j < neuronParams->count; j++) {
 			writeValueArray(array, neuronParams->values[j])	;
 		}
-		freeValueArray(neuronParams);
+		// freeValueArray(neuronParams);
 	}
 
 	return array;
@@ -197,15 +199,13 @@ ValueArray* paramsMLP(MLP* mlp) {
 		for (int j=0; j < layerParams->count; j++) {
 			writeValueArray(array, layerParams->values[j])	;
 		}
-		freeValueArray(layerParams);
+		// freeValueArray(layerParams);
 	}
 
 	return array;
 }
 
-void zeroGrad(MLP* mlp) {
-	ValueArray* params = paramsMLP(mlp);
-
+void zeroGrad(ValueArray* params) {
 	for (int i=0; i < params->count; i++) {
 		params->values[i]->grad = 0;
 	}

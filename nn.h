@@ -43,7 +43,7 @@ MLP* newMLP(int count, ...);
 void freeMLP(MLP* mlp);
 Value* forwardMLP(MLP* mlp, ValueArray* x);
 ValueArray* paramsMLP(MLP* mlp);
-void zeroGrad(MLP* mlp);
+void zeroGrad(ValueArray* params);
 
 #endif
 
