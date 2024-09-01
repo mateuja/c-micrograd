@@ -1,11 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include "engine.h"
 #include "nn.h"
-#include "random.h"
 
 ValueArray* readCsv(const char* path, int rows, int cols) {
 	FILE *file = fopen(path, "r");
@@ -121,7 +119,7 @@ void printParams(ValueArray* params) {
 
 int main() {
 	// Seed the random number generator
-	srand(time(NULL));
+	srand(1337);
 
 	int nRows = 100;
 	int nFeats = 2;
@@ -136,7 +134,8 @@ int main() {
 	// Optimization
 	int nEpoch = 100;
 	for (int epoch=0; epoch < nEpoch; epoch++) {
-		// Compute scores
+		
+		// forward
 		ValueArray* scores = (ValueArray*)malloc(sizeof(ValueArray));
 		scores->values = (Value**)malloc(nRows * sizeof(Value*));
 		scores->count = nRows;
@@ -147,8 +146,7 @@ int main() {
 		}
 
 		Value* dataLoss = computeDataLoss(labels, scores);
-		float alpha = 1e-4;
-		Value* regLoss = computeRegLoss(paramsMLP(model), alpha);
+		Value* regLoss = computeRegLoss(paramsMLP(model), 1e-5);
 		Value* loss = vAdd(dataLoss, regLoss);
 
 		float acc = accuracy(labels, scores);

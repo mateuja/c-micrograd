@@ -171,8 +171,8 @@ MLP* newMLP(int count,...) {
 	initLayerArray(&mlp->layers);
 	
 	for (int i=1; i < count; i++) {
-		bool isLastLayer = i == count -1;
-		writeLayerArray(&mlp->layers, newLayer(argsArray[i-1], argsArray[i], isLastLayer));
+		bool notLastLayer = i != count -1;
+		writeLayerArray(&mlp->layers, newLayer(argsArray[i-1], argsArray[i], notLastLayer));
 	}
 	
 	return mlp;
