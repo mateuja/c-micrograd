@@ -172,7 +172,7 @@ MLP* newMLP(int count,...) {
 		bool isLastLayer = i == count -1;
 		writeLayerArray(&mlp->layers, newLayer(argsArray[i-1], argsArray[i], isLastLayer));
 	}
-
+	
 	return mlp;
 }
 
@@ -201,5 +201,13 @@ ValueArray* paramsMLP(MLP* mlp) {
 	}
 
 	return array;
+}
+
+void zeroGrad(MLP* mlp) {
+	ValueArray* params = paramsMLP(mlp);
+
+	for (int i=0; i < params->count; i++) {
+		params->values[i]->grad = 0;
+	}
 }
 
