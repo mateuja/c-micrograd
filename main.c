@@ -19,5 +19,9 @@ int main() {
 	printValue(*a);
 	printValue(*b);
 
+	freeTopo(g);
+
+	printf("Counter: %d\n", ID_COUNTER);
+
 	return 0;
 }

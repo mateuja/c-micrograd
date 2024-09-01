@@ -5,7 +5,7 @@
 #include "memory.h"
 #include "engine.h"
 
-uint ID_COUNTER = 1;
+int ID_COUNTER = 1;
 
 void initValueArray(ValueArray* array) {
 	array->values = NULL;
@@ -24,7 +24,7 @@ void writeValueArray(ValueArray* array, Value* value) {
 }
 
 void freeValueArray(ValueArray* array) {
-	// FREE_ARRAY(Value, array->values, array->capacity);
+	free(array->values);
 	initValueArray(array);
 }
 
@@ -37,6 +37,7 @@ Value* newValue(float data) {
 	val->data = data;
 	val->grad = 0;
 	val->id = ID_COUNTER;
+	val->backward = BW_NULL;
 	ID_COUNTER++;
 	initValueArray(&val->prev);
 
@@ -44,11 +45,8 @@ Value* newValue(float data) {
 }
 
 void freeValue(Value* val) {
-	val->data = 0;
-	val->grad = 0;
-	val->id = 0;
-	val->backward = BW_NULL;
 	freeValueArray(&val->prev);
+	free(val);
 }
 
 void printValue(Value value) {
@@ -150,11 +148,23 @@ static void buildTopo(Value* val, ValueArray* topo, bool* visited) {
 	}
 }
 
-void backward(Value* val) {
-	// Build topological
+void freeTopo(Value* val) {
 	ValueArray topo;
 	initValueArray(&topo);
+	bool* visited = (bool*)calloc((ID_COUNTER), sizeof(bool));
+
+	buildTopo(val, &topo, visited);
 	
+	for (int i=topo.count-1; i >=0; i--) {
+		freeValue(topo.values[i]);
+	}
+	free(visited);
+	freeValueArray(&topo);
+}
+
+void backward(Value* val) {
+	ValueArray topo;
+	initValueArray(&topo);
 	bool* visited = (bool*)calloc((ID_COUNTER), sizeof(bool));
 
 	buildTopo(val, &topo, visited);
@@ -190,5 +200,7 @@ void backward(Value* val) {
 				continue;
 		}
 	}
+	free(visited);
+	freeValueArray(&topo);
 }
 

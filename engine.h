@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+extern int ID_COUNTER;
+
 // Forward declaration to use it in the BackwardFunc function pointer type
 typedef struct Value Value;
 
@@ -50,6 +52,9 @@ Value* vDivFloat(Value* self, float other);
 
 void backward(Value* val);
 
+void freeTopo(Value* val);
+
 void printValue(Value value);
+
 
 #endif
