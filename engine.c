@@ -50,7 +50,7 @@ void freeValue(Value* val) {
 }
 
 void printValue(Value value) {
-	printf("Value(id=%d, data=%.2f, grad=%.2f)\n", value.id, value.data, value.grad);
+	printf("Value(id=%d, data=%.4f, grad=%.4f)\n", value.id, value.data, value.grad);
 }
 
 static void backwardAdd(Value* out, Value* fst, Value* snd)  {
