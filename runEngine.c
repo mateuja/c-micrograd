@@ -21,7 +21,6 @@ int main() {
 
 	freeTopo(g);
 
-	printf("Counter: %d\n", ID_COUNTER);
-
 	return 0;
 }
+
