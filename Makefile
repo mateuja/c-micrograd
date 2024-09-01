@@ -5,20 +5,20 @@ SRCDIR = .
 TARGETDIR = target
 
 # Source files
-ENGINE_SRC = $(SRCDIR)/runEngine.c
-MODEL_SRC = $(SRCDIR)/runModel.c
+EXAMPLE_SRC = $(SRCDIR)/example.c
+NN_SRC = $(SRCDIR)/train_nn.c
 COMMON_SRCS = $(wildcard $(SRCDIR)/*.c)  # All other .c files as common sources
 
 # Filter out specific main source files from COMMON_SRCS
-COMMON_SRCS := $(filter-out $(ENGINE_SRC) $(MODEL_SRC), $(COMMON_SRCS))
+COMMON_SRCS := $(filter-out $(EXAMPLE_SRC) $(NN_SRC), $(COMMON_SRCS))
 
 # Object files
-ENGINE_OBJS = $(ENGINE_SRC:.c=.o) $(COMMON_SRCS:.c=.o)
-MODEL_OBJS = $(MODEL_SRC:.c=.o) $(COMMON_SRCS:.c=.o)
+ENGINE_OBJS = $(EXAMPLE_SRC:.c=.o) $(COMMON_SRCS:.c=.o)
+MODEL_OBJS = $(NN_SRC:.c=.o) $(COMMON_SRCS:.c=.o)
 
 # Executable names
-TARGET1 = $(TARGETDIR)/runEngine
-TARGET2 = $(TARGETDIR)/runModel
+TARGET1 = $(TARGETDIR)/example
+TARGET2 = $(TARGETDIR)/train_nn
 
 .PHONY: all clean
 

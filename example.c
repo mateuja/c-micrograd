@@ -14,10 +14,12 @@ int main() {
 	Value* g = vDivFloat(f, 2.0);
 	g = vAdd(g, vDiv(newValue(10.0), f));
 	
-	backward(g);
+	printf("%.4f\n", g->data);	// prints 24.7041, the outcome of this forward pass
 
-	printValue(*a);
-	printValue(*b);
+	backward(g);
+	
+	printf("%.4f\n", a->grad);	// prints 138.8338, i.e. the numerical value of dg/da
+	printf("%.4f\n", b->grad);	// prints 645.5773, i.e. the numerical value of dg/db
 
 	freeTopo(g);
 
