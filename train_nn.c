@@ -151,6 +151,9 @@ int main() {
 	
 	// Initialize model
 	MLP* model = newMLP(4, 2, 16, 16, 1);
+
+	// Get params
+	ValueArray* params = paramsMLP(model);
 	
 	// Initialize scores
 	ValueArray* scores = (ValueArray*)malloc(sizeof(ValueArray));
@@ -168,8 +171,6 @@ int main() {
 			scores->values[i] = forwardMLP(model, &inputs[i]);
 		}
 
-		ValueArray* params = paramsMLP(model);
-
 		Value* dataLoss = computeDataLoss(labels, scores);
 		Value* regLoss = computeRegLoss(params, 1e-5);
 		Value* loss = vAdd(dataLoss, regLoss);
@@ -182,14 +183,13 @@ int main() {
 		
 		float lr = 1.0 - 0.9 * epoch / nEpoch;
 		updateParams(params, lr);
-
-		freeValueArray(&params);
 		 
 		printf("step %d loss %f, accuracy %.4f \n", epoch, loss->data, acc);
 		
+		// free all nodes that were created in the epoch
 		freeDAG(loss, startEpochId);
-		// freeDAG(loss, (int)(epoch != nEpoch - 1) * startEpochId);
 	}
+	freeValueArray(&params);
 	freeValueArray(&scores);
 	freeMLP(&model);
 	freeLabels(labels, nRows);

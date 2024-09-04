@@ -59,12 +59,14 @@ static Value* forwardNeuron(Neuron* neuron, ValueArray* x) {
 
 static ValueArray* paramsNeuron(Neuron* neuron) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
-	initValueArray(array);
+	array->values = (Value**)malloc((neuron->nin + 1) * sizeof(Value*));
+	array->count = neuron->nin + 1;
+	array->capacity = neuron->nin + 1;
 
 	for (int i=0; i < neuron->nin; i++) {
-		writeValueArray(array, neuron->W.values[i]);
+		array->values[i] = neuron->W.values[i];
 	}
-	writeValueArray(array, neuron->b);
+	array->values[neuron->nin] = neuron->b;
 	return array;
 }
 
@@ -132,10 +134,13 @@ static void freeLayer(Layer** layer) {
 
 static ValueArray* forwardLayer(Layer* layer, ValueArray* x) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
-	initValueArray(array);
+	array->values = (Value**)malloc(layer->nout * sizeof(Value*));
+	array->count = layer->nout;
+	array->capacity = layer->nout;
+
 	
 	for (int i=0; i < layer->nout; i++) {
-		writeValueArray(array, forwardNeuron(layer->neurons.values[i], x));
+		array->values[i] = forwardNeuron(layer->neurons.values[i], x);
 	}
 
 	return array;
