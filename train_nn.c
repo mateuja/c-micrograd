@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +57,26 @@ ValueArray* readCsv(const char* path, int rows, int cols) {
 	fclose(file);
 
 	return data;
+}
+
+void freeInputs(ValueArray* data, int rows) {
+	for (int i=0; i < rows; i++) {
+		for (int j=0; j < 2; j++) {
+			freeValue(&data[i].values[j]);
+			assert(data[i].values[j] == NULL);
+		}
+		free(data[i].values);
+	}
+	free(data);
+}
+
+void freeLabels(ValueArray* data, int rows) {
+	for (int i=0; i < rows; i++) {
+		freeValue(&data->values[i]);
+		assert(data->values[i] == NULL);
+	}
+	free(data->values);
+	free(data);
 }
 
 void printValueArray(ValueArray* data, int rows, int cols) {
@@ -130,34 +151,47 @@ int main() {
 	
 	// Initialize model
 	MLP* model = newMLP(4, 2, 16, 16, 1);
+	
+	// Initialize scores
+	ValueArray* scores = (ValueArray*)malloc(sizeof(ValueArray));
+	scores->values = (Value**)malloc(nRows * sizeof(Value*));
+	scores->count = nRows;
+	scores->capacity = nRows;
 
 	// Optimization
 	int nEpoch = 100;
 	for (int epoch=0; epoch < nEpoch; epoch++) {
-		
-		// forward
-		ValueArray* scores = (ValueArray*)malloc(sizeof(ValueArray));
-		scores->values = (Value**)malloc(nRows * sizeof(Value*));
-		scores->count = nRows;
-		scores->capacity = nRows;
+		int startEpochId = ID_COUNTER;	
 
+		// forward
 		for (int i=0; i < nRows; i++) {
 			scores->values[i] = forwardMLP(model, &inputs[i]);
 		}
 
+		ValueArray* params = paramsMLP(model);
+
 		Value* dataLoss = computeDataLoss(labels, scores);
-		Value* regLoss = computeRegLoss(paramsMLP(model), 1e-5);
+		Value* regLoss = computeRegLoss(params, 1e-5);
 		Value* loss = vAdd(dataLoss, regLoss);
 
 		float acc = accuracy(labels, scores);
 
 		// backward
-		zeroGrad(paramsMLP(model));
+		zeroGrad(params);
 		backward(loss);
 		
 		float lr = 1.0 - 0.9 * epoch / nEpoch;
-		updateParams(paramsMLP(model), lr);
+		updateParams(params, lr);
+
+		freeValueArray(&params);
 		 
 		printf("step %d loss %f, accuracy %.4f \n", epoch, loss->data, acc);
+		
+		freeDAG(loss, startEpochId);
+		// freeDAG(loss, (int)(epoch != nEpoch - 1) * startEpochId);
 	}
+	freeValueArray(&scores);
+	freeMLP(&model);
+	freeLabels(labels, nRows);
+	freeInputs(inputs, nRows);
 }

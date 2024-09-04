@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
@@ -23,9 +24,18 @@ void writeValueArray(ValueArray* array, Value* value) {
 	array->count++;
 }
 
-void freeValueArray(ValueArray* array) {
-	free(array->values);
-	initValueArray(array);
+void freeValueArray(ValueArray** array) {
+	if (array == NULL || *array == NULL) {
+		return; // Do nothing if the array is already null
+	}
+
+	ValueArray* tempArray = *array;
+	
+	free(tempArray->values);
+	tempArray->values = NULL;
+	free(tempArray);
+	tempArray = NULL;
+	*array = NULL;
 }
 
 Value* newValue(float data) {
@@ -44,9 +54,16 @@ Value* newValue(float data) {
 	return val;
 }
 
-void freeValue(Value* val) {
-	freeValueArray(&val->prev);
-	free(val);
+void freeValue(Value** val) {
+	if (val == NULL || *val == NULL) {
+		return;
+	}
+	Value* tempValue = *val;	
+	
+	free(tempValue->prev.values);
+	tempValue->prev.values = NULL;
+	free(tempValue);
+	*val = NULL;
 }
 
 void printValue(Value value) {
@@ -148,32 +165,39 @@ static void buildTopo(Value* val, ValueArray* topo, bool* visited) {
 	}
 }
 
-void freeTopo(Value* val) {
-	ValueArray topo;
-	initValueArray(&topo);
+void freeDAG(Value* last, int fromId) {
+	ValueArray* topo = (ValueArray*)malloc(sizeof(ValueArray));
+	initValueArray(topo);
 	bool* visited = (bool*)calloc((ID_COUNTER), sizeof(bool));
 
-	buildTopo(val, &topo, visited);
-	
-	for (int i=topo.count-1; i >=0; i--) {
-		freeValue(topo.values[i]);
+	buildTopo(last, topo, visited);
+
+	for (int i=0; i < topo->count; i++) {
+		if (topo->values[i] != NULL && topo->values[i]->id >= fromId) {
+			freeValue(&topo->values[i]);
+			assert(topo->values[i] == NULL);
+		}
 	}
-	free(visited);
+
+	
 	freeValueArray(&topo);
+	assert(topo == NULL);
+	
+	free(visited);
 }
 
 void backward(Value* val) {
-	ValueArray topo;
-	initValueArray(&topo);
+	ValueArray* topo = (ValueArray*)malloc(sizeof(ValueArray));
+	initValueArray(topo);
 	bool* visited = (bool*)calloc((ID_COUNTER), sizeof(bool));
 
-	buildTopo(val, &topo, visited);
+	buildTopo(val, topo, visited);
 
 	val->grad = 1;
 	
 	Value* currentVal;
-	for (int i=topo.count-1; i >= 0; i--) {
-		currentVal = topo.values[i];
+	for (int i=topo->count-1; i >= 0; i--) {
+		currentVal = topo->values[i];
 
 		switch (currentVal->backward) {
 			case BW_NULL:

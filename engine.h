@@ -1,6 +1,7 @@
 #ifndef micrograd_engine_h
 #define micrograd_engine_h
 
+#include <stdbool.h>
 #include <stdio.h>
 
 extern int ID_COUNTER;
@@ -32,10 +33,10 @@ struct Value {
 
 void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value* value);
-void freeValueArray(ValueArray* array);
+void freeValueArray(ValueArray** array);
 
 Value* newValue(float data);
-void freeValue(Value* value);
+void freeValue(Value** value);
 
 Value* vAdd(Value* self, Value* other);
 Value* vAddFloat(Value* self, float other);
@@ -52,7 +53,7 @@ Value* vDivFloat(Value* self, float other);
 
 void backward(Value* val);
 
-void freeTopo(Value* val);
+void freeDAG(Value* last, int fromId);
 
 void printValue(Value value);
 
