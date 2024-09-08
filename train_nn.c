@@ -6,7 +6,7 @@
 #include "engine.h"
 #include "nn.h"
 
-ValueArray* readCsv(const char* path, int rows, int cols) {
+ValueArray* readCsv(const char* path, size_t rows, size_t cols) {
 	FILE *file = fopen(path, "r");
 	if (file == NULL) {
 		perror("Unable to open file!");
@@ -16,7 +16,7 @@ ValueArray* readCsv(const char* path, int rows, int cols) {
 	ValueArray* data;
 	if (cols == 1) {
 		data = (ValueArray*)malloc(sizeof(ValueArray));
-		data->values = (Value**)malloc(rows*sizeof(Value*));
+		data->items = (Value**)malloc(rows*sizeof(Value*));
 		data->count = rows;
 		data->capacity = rows;
 	} else {
@@ -27,26 +27,26 @@ ValueArray* readCsv(const char* path, int rows, int cols) {
 			exit(1);
 		}
 
-		for (int i=0; i < rows; i++) {
-			data[i].values = (Value**)malloc(cols * sizeof(Value*));
+		for (size_t i=0; i < rows; i++) {
+			data[i].items = (Value**)malloc(cols * sizeof(Value*));
 			data[i].count = cols;
 			data[i].capacity = cols;
 		}
 	}
 
 	// Read the data into the array
-	int r = 0;
+	size_t r = 0;
 	char buffer[1024];
 	while (fgets(buffer, sizeof(buffer), file)) {
 		char* token = strtok(buffer, ",");
 		if (cols == 1) {
 			if (token) {
-				data->values[r] = newValue(atof(token));
+				data->items[r] = newValue(atof(token));
 			}
 		} else {
-			for (int c=0; c < cols; c++) {
+			for (size_t c=0; c < cols; c++) {
 				if (token) {
-					data[r].values[c] = newValue(atof(token));
+					data[r].items[c] = newValue(atof(token));
 					token = strtok(NULL, ",");
 				}
 			}
@@ -59,33 +59,33 @@ ValueArray* readCsv(const char* path, int rows, int cols) {
 	return data;
 }
 
-void freeInputs(ValueArray* data, int rows) {
-	for (int i=0; i < rows; i++) {
-		for (int j=0; j < 2; j++) {
-			freeValue(&data[i].values[j]);
-			assert(data[i].values[j] == NULL);
+void freeInputs(ValueArray* data, size_t rows) {
+	for (size_t i=0; i < rows; i++) {
+		for (size_t j=0; j < 2; j++) {
+			freeValue(&data[i].items[j]);
+			assert(data[i].items[j] == NULL);
 		}
-		free(data[i].values);
+		free(data[i].items);
 	}
 	free(data);
 }
 
-void freeLabels(ValueArray* data, int rows) {
-	for (int i=0; i < rows; i++) {
-		freeValue(&data->values[i]);
-		assert(data->values[i] == NULL);
+void freeLabels(ValueArray* data, size_t rows) {
+	for (size_t i=0; i < rows; i++) {
+		freeValue(&data->items[i]);
+		assert(data->items[i] == NULL);
 	}
-	free(data->values);
+	free(data->items);
 	free(data);
 }
 
-void printValueArray(ValueArray* data, int rows, int cols) {
-	for (int i=0; i < rows; i++) {
+void printValueArray(ValueArray* data, size_t rows, size_t cols) {
+	for (size_t i=0; i < rows; i++) {
 		if (cols == 1) {
-			printValue(*data->values[i]);
+			printValue(*data->items[i]);
 		} else {
-			for (int j=0; j < cols; j++) {
-				printValue(*data[i].values[j]);
+			for (size_t j=0; j < cols; j++) {
+				printValue(*data[i].items[j]);
 			}
 		}
 	}
@@ -93,9 +93,9 @@ void printValueArray(ValueArray* data, int rows, int cols) {
 
 Value* computeDataLoss(ValueArray* labels, ValueArray* scores) {
 	Value* totalLoss = newValue(0.0);
-	for (int i=0; i < scores->count; i++) {
-		Value* label = labels->values[i];
-		Value* score = scores->values[i]; 
+	for (size_t i=0; i < scores->count; i++) {
+		Value* label = labels->items[i];
+		Value* score = scores->items[i]; 
 		
 		totalLoss = vAdd(
 			totalLoss,
@@ -107,10 +107,10 @@ Value* computeDataLoss(ValueArray* labels, ValueArray* scores) {
 
 Value* computeRegLoss(ValueArray* params, float alpha) {
 	Value* loss = newValue(0.0);
-	for (int i=0; i < params->count; i++) {
+	for (size_t i=0; i < params->count; i++) {
 		loss = vAdd(
 			loss,
-			vMul(params->values[i], params->values[i])
+			vMul(params->items[i], params->items[i])
 		);
 	}
 	return vMulFloat(loss, alpha);
@@ -118,32 +118,24 @@ Value* computeRegLoss(ValueArray* params, float alpha) {
 
 float accuracy(ValueArray* labels, ValueArray* scores) {
 	float accuracy = 0;
-	for (int i=0; i < scores->count; i++) {
-		accuracy += (int)((labels->values[i]->data > 0) == (scores->values[i]->data > 0));
+	for (size_t i=0; i < scores->count; i++) {
+		accuracy += (int)((labels->items[i]->data > 0) == (scores->items[i]->data > 0));
 	}
 	return accuracy / scores->count;
 }
 
 void updateParams(ValueArray* params, float lr) {
-	for (int i=0; i < params->count; i++) {
-		params->values[i]->data -= lr * params->values[i]->grad;
+	for (size_t i=0; i < params->count; i++) {
+		params->items[i]->data -= lr * params->items[i]->grad;
 	}
-}
-
-void printParams(ValueArray* params) {
-	printf("Params:\n");
-	for (int i=0; i < params->count; i++) {
-		printValue(*params->values[i]);
-	}
-	printf("\n");
 }
 
 int main() {
 	// Seed the random number generator
 	srand(1337);
 
-	int nRows = 100;
-	int nFeats = 2;
+	size_t nRows = 100;
+	size_t nFeats = 2;
 	
 	// Read inputs
 	ValueArray* inputs = readCsv("data/X.csv", nRows, nFeats);
@@ -157,18 +149,18 @@ int main() {
 	
 	// Initialize scores
 	ValueArray* scores = (ValueArray*)malloc(sizeof(ValueArray));
-	scores->values = (Value**)malloc(nRows * sizeof(Value*));
+	scores->items = (Value**)malloc(nRows * sizeof(Value*));
 	scores->count = nRows;
 	scores->capacity = nRows;
 
 	// Optimization
-	int nEpoch = 100;
-	for (int epoch=0; epoch < nEpoch; epoch++) {
+	size_t nEpoch = 100;
+	for (size_t epoch=0; epoch < nEpoch; epoch++) {
 		int startEpochId = ID_COUNTER;	
 
 		// forward
-		for (int i=0; i < nRows; i++) {
-			scores->values[i] = forwardMLP(model, &inputs[i]);
+		for (size_t i=0; i < nRows; i++) {
+			scores->items[i] = forwardMLP(model, &inputs[i]);
 		}
 
 		Value* dataLoss = computeDataLoss(labels, scores);
@@ -184,7 +176,7 @@ int main() {
 		float lr = 1.0 - 0.9 * epoch / nEpoch;
 		updateParams(params, lr);
 		 
-		printf("step %d loss %f, accuracy %.4f \n", epoch, loss->data, acc);
+		printf("step %lu loss %f, accuracy %.4f \n", epoch, loss->data, acc);
 		
 		// free all nodes that were created in the epoch
 		freeDAG(loss, startEpochId);

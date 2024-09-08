@@ -3,21 +3,20 @@
 #include <stdlib.h>
 
 #include "engine.h"
-#include "memory.h"
 #include "nn.h"
 #include "random.h"
 
-static Neuron* newNeuron(int nin, bool nonlin) {
+static Neuron* newNeuron(size_t nin, bool nonlin) {
 	Neuron* neuron = (Neuron*)malloc(sizeof(Neuron));
 	neuron->nin = nin;
 	neuron->nonlin = nonlin;
-	neuron->W.values = (Value**)malloc(nin * sizeof(Value*));
+	neuron->W.items = (Value**)malloc(nin * sizeof(Value*));
 	neuron->W.count = nin;
 	neuron->W.capacity = nin;
 	
-	for (int i=0; i < nin; i++) {
+	for (size_t i=0; i < nin; i++) {
 		Value* val = newValue(randomUniform(-1.0, 1.0));
-		neuron->W.values[i] = val;
+		neuron->W.items[i] = val;
 	}
 	neuron->b = newValue(0.0);
 
@@ -31,11 +30,11 @@ static void freeNeuron(Neuron** neuron) {
 	Neuron* tempNeuron = *neuron;
 
 	ValueArray* weights = &tempNeuron->W;
-	for (int i=0; i < weights->count; i++) {
-		freeValue(&weights->values[i]);
-		assert(weights->values[i] == NULL);
+	for (size_t i=0; i < weights->count; i++) {
+		freeValue(&weights->items[i]);
+		assert(weights->items[i] == NULL);
 	}
-	free(weights->values);
+	free(weights->items);
 	freeValue(&tempNeuron->b);
 	free(tempNeuron);
 	*neuron = NULL; 
@@ -43,10 +42,10 @@ static void freeNeuron(Neuron** neuron) {
 
 static Value* forwardNeuron(Neuron* neuron, ValueArray* x) {
 	Value* val = neuron->b; 
-	for (int i=0; i < neuron->nin; i++) {
+	for (size_t i=0; i < neuron->nin; i++) {
 		val = vAdd(
 			val,
-			vMul(neuron->W.values[i], x->values[i])
+			vMul(neuron->W.items[i], x->items[i])
 		);
 	}
 	
@@ -59,31 +58,21 @@ static Value* forwardNeuron(Neuron* neuron, ValueArray* x) {
 
 static ValueArray* paramsNeuron(Neuron* neuron) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
-	array->values = (Value**)malloc((neuron->nin + 1) * sizeof(Value*));
+	array->items = (Value**)malloc((neuron->nin + 1) * sizeof(Value*));
 	array->count = neuron->nin + 1;
 	array->capacity = neuron->nin + 1;
 
-	for (int i=0; i < neuron->nin; i++) {
-		array->values[i] = neuron->W.values[i];
+	for (size_t i=0; i < neuron->nin; i++) {
+		array->items[i] = neuron->W.items[i];
 	}
-	array->values[neuron->nin] = neuron->b;
+	array->items[neuron->nin] = neuron->b;
 	return array;
 }
 
 static void initNeuronArray(NeuronArray* array) {
-	array->values = NULL;
+	array->items = NULL;
 	array->capacity = 0;
 	array->count = 0;
-}
-
-static void writeNeuronArray(NeuronArray* array, Neuron* neuron) {
-	if (array->capacity < array->count + 1) {
-		int oldCapacity = array->capacity;
-		array->capacity = GROW_CAPACITY(oldCapacity);
-		array->values = GROW_ARRAY(Neuron*, array->values, oldCapacity, array->capacity);
-	}
-	array->values[array->count] = neuron;
-	array->count++;
 }
 
 static void freeNeuronArray(NeuronArray** array) {
@@ -93,13 +82,13 @@ static void freeNeuronArray(NeuronArray** array) {
 	
 	NeuronArray* tempArray = *array;
 
-	for (int i=0; i < tempArray->count; i++) {
-		freeNeuron(&tempArray->values[i]);
-		// assert(&tempArray->values[i] == NULL);
+	for (size_t i=0; i < tempArray->count; i++) {
+		freeNeuron(&tempArray->items[i]);
+		// assert(&tempArray->items[i] == NULL);
 	}
-	free(tempArray->values);
+	free(tempArray->items);
 	initNeuronArray(tempArray);
-	assert(tempArray->values == NULL);
+	assert(tempArray->items == NULL);
 	*array = NULL;
 }
 
@@ -109,11 +98,8 @@ static Layer* newLayer(int nin, int nout, bool nonlin) {
 	layer->nout = nout;
 	initNeuronArray(&layer->neurons);
 
-	for (int i=0; i < layer->nout; i++) {
-		writeNeuronArray(
-			&layer->neurons,
-			newNeuron(layer->nin, nonlin)
-		);
+	for (size_t i=0; i < layer->nout; i++) {
+		APPEND_ARRAY(&(layer->neurons), newNeuron(layer->nin, nonlin));
 	}
 	return layer;
 }
@@ -134,13 +120,13 @@ static void freeLayer(Layer** layer) {
 
 static ValueArray* forwardLayer(Layer* layer, ValueArray* x) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
-	array->values = (Value**)malloc(layer->nout * sizeof(Value*));
+	array->items = (Value**)malloc(layer->nout * sizeof(Value*));
 	array->count = layer->nout;
 	array->capacity = layer->nout;
 
 	
-	for (int i=0; i < layer->nout; i++) {
-		array->values[i] = forwardNeuron(layer->neurons.values[i], x);
+	for (size_t i=0; i < layer->nout; i++) {
+		array->items[i] = forwardNeuron(layer->neurons.items[i], x);
 	}
 
 	return array;
@@ -150,10 +136,10 @@ static ValueArray* paramsLayer(Layer* layer) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
 	initValueArray(array);
 	
-	for (int i=0; i < layer->neurons.count; i++) {
-		ValueArray* neuronParams = paramsNeuron(layer->neurons.values[i]);
-		for (int j=0; j < neuronParams->count; j++) {
-			writeValueArray(array, neuronParams->values[j])	;
+	for (size_t i=0; i < layer->neurons.count; i++) {
+		ValueArray* neuronParams = paramsNeuron(layer->neurons.items[i]);
+		for (size_t j=0; j < neuronParams->count; j++) {
+			APPEND_ARRAY(array, neuronParams->items[j]);
 		}
 		freeValueArray(&neuronParams);
 		assert(neuronParams == NULL);
@@ -163,19 +149,9 @@ static ValueArray* paramsLayer(Layer* layer) {
 }
 
 static void initLayerArray(LayerArray* array) {
-	array->values = NULL;
+	array->items = NULL;
 	array->capacity = 0;
 	array->count = 0;
-}
-
-static void writeLayerArray(LayerArray* array, Layer* layer) {
-	if (array->capacity < array->count + 1) {
-		int oldCapacity = array->capacity;
-		array->capacity = GROW_CAPACITY(oldCapacity);
-		array->values = GROW_ARRAY(Layer*, array->values, oldCapacity, array->capacity);
-	}
-	array->values[array->count] = layer;
-	array->count++;
 }
 
 static void freeLayerArray(LayerArray** array) {
@@ -185,18 +161,18 @@ static void freeLayerArray(LayerArray** array) {
 
 	LayerArray* tempArray = *array;
 
-	for (int i=0; i < tempArray->count; i++) {
-		freeLayer(&tempArray->values[i]);
-		assert(tempArray->values[i] == NULL);
+	for (size_t i=0; i < tempArray->count; i++) {
+		freeLayer(&tempArray->items[i]);
+		assert(tempArray->items[i] == NULL);
 	}
-	free(tempArray->values);
+	free(tempArray->items);
 	initLayerArray(tempArray);
-	assert(tempArray->values == NULL);
+	assert(tempArray->items == NULL);
 
 	*array = NULL;
 }
 
-MLP* newMLP(int count,...) {
+MLP* newMLP(size_t count,...) {
 	va_list args;
 	va_start(args, count);
 	
@@ -208,7 +184,7 @@ MLP* newMLP(int count,...) {
 		return NULL;
 	}
 	
-	for (int i=0; i < count; i++) {
+	for (size_t i=0; i < count; i++) {
 		argsArray[i] = va_arg(args, int);
 	}
 
@@ -218,9 +194,9 @@ MLP* newMLP(int count,...) {
 	MLP* mlp = (MLP*)malloc(sizeof(MLP));
 	initLayerArray(&mlp->layers);
 	
-	for (int i=1; i < count; i++) {
+	for (size_t i=1; i < count; i++) {
 		bool notLastLayer = i != count -1;
-		writeLayerArray(&mlp->layers, newLayer(argsArray[i-1], argsArray[i], notLastLayer));
+		APPEND_ARRAY(&(mlp->layers), newLayer(argsArray[i-1], argsArray[i], notLastLayer));
 	}
 	free(argsArray);
 	
@@ -229,13 +205,13 @@ MLP* newMLP(int count,...) {
 
 Value* forwardMLP(MLP* mlp, ValueArray* x) {
 	ValueArray* temp;
-	for (int i=0; i < mlp->layers.count; i++) {
-		temp = forwardLayer(mlp->layers.values[i], x);
+	for (size_t i=0; i < mlp->layers.count; i++) {
+		temp = forwardLayer(mlp->layers.items[i], x);
 		if (i > 0) freeValueArray(&x); // Do not free inputs
 		x = temp;
 	}
 	
-	Value* out = x->values[0];
+	Value* out = x->items[0];
 	freeValueArray(&x);
 
 	return out;
@@ -245,10 +221,10 @@ ValueArray* paramsMLP(MLP* mlp) {
 	ValueArray* array = (ValueArray*)malloc(sizeof(ValueArray));
 	initValueArray(array);
 	
-	for (int i=0; i < mlp->layers.count; i++) {
-		ValueArray* layerParams = paramsLayer(mlp->layers.values[i]);
-		for (int j=0; j < layerParams->count; j++) {
-			writeValueArray(array, layerParams->values[j])	;
+	for (size_t i=0; i < mlp->layers.count; i++) {
+		ValueArray* layerParams = paramsLayer(mlp->layers.items[i]);
+		for (size_t j=0; j < layerParams->count; j++) {
+			APPEND_ARRAY(array, layerParams->items[j]);
 		}
 		freeValueArray(&layerParams);
 		assert(layerParams == NULL);
@@ -272,8 +248,8 @@ void freeMLP(MLP** mlp) {
 
 
 void zeroGrad(ValueArray* params) {
-	for (int i=0; i < params->count; i++) {
-		params->values[i]->grad = 0;
+	for (size_t i=0; i < params->count; i++) {
+		params->items[i]->grad = 0;
 	}
 }
 

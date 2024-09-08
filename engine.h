@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "dynarray.h"
+
 extern int ID_COUNTER;
 
 // Forward declaration to use it in the BackwardFunc function pointer type
@@ -17,11 +19,7 @@ typedef enum {
 	BW_RELU,
 } BackwardFunc;
 
-typedef struct {
-	int capacity;
-	int count;
-	Value** values;
-} ValueArray;
+DEFINE_DYNAMIC_ARRAY(Value);
 
 struct Value {
 	float data;
@@ -32,7 +30,6 @@ struct Value {
 };
 
 void initValueArray(ValueArray* array);
-void writeValueArray(ValueArray* array, Value* value);
 void freeValueArray(ValueArray** array);
 
 Value* newValue(float data);
@@ -56,6 +53,5 @@ void backward(Value* val);
 void freeDAG(Value* last, int fromId);
 
 void printValue(Value value);
-
 
 #endif

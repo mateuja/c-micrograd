@@ -3,43 +3,30 @@
 
 #include <stdbool.h>
 #include "engine.h"
+#include "dynarray.h"
 
 typedef struct {
-	int capacity;
-	int count;
-	float* values;
-} FloatArray;
-
-typedef struct {
-	int nin;
+	size_t nin;
 	ValueArray W;
 	Value* b;
 	bool nonlin;
 } Neuron;
 
-typedef struct {
-	int capacity;
-	int count;
-	Neuron** values;
-} NeuronArray;
+DEFINE_DYNAMIC_ARRAY(Neuron);
 
 typedef struct {
-	int nin;
-	int nout;
+	size_t nin;
+	size_t nout;
 	NeuronArray neurons;
 } Layer;
 
-typedef struct {
-	int capacity;	
-	int count;
-	Layer** values;
-} LayerArray;
+DEFINE_DYNAMIC_ARRAY(Layer);
 
 typedef struct {
 	LayerArray layers;
 } MLP;
 
-MLP* newMLP(int count, ...);
+MLP* newMLP(size_t count, ...);
 void freeMLP(MLP** mlp);
 Value* forwardMLP(MLP* mlp, ValueArray* x);
 ValueArray* paramsMLP(MLP* mlp);

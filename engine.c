@@ -3,25 +3,14 @@
 #include <stdbool.h>
 #include <math.h>
 
-#include "memory.h"
 #include "engine.h"
 
 int ID_COUNTER = 1;
 
 void initValueArray(ValueArray* array) {
-	array->values = NULL;
+	array->items = NULL;
 	array->capacity = 0;
 	array->count = 0;
-}
-
-void writeValueArray(ValueArray* array, Value* value) {
-	if (array->capacity < array->count + 1) {
-		int oldCapacity = array->capacity;
-		array->capacity = GROW_CAPACITY(oldCapacity);
-		array->values = GROW_ARRAY(Value*, array->values, oldCapacity, array->capacity);
-	}
-	array->values[array->count] = value;
-	array->count++;
 }
 
 void freeValueArray(ValueArray** array) {
@@ -31,8 +20,8 @@ void freeValueArray(ValueArray** array) {
 
 	ValueArray* tempArray = *array;
 	
-	free(tempArray->values);
-	tempArray->values = NULL;
+	free(tempArray->items);
+	tempArray->items = NULL;
 	free(tempArray);
 	tempArray = NULL;
 	*array = NULL;
@@ -60,8 +49,8 @@ void freeValue(Value** val) {
 	}
 	Value* tempValue = *val;	
 	
-	free(tempValue->prev.values);
-	tempValue->prev.values = NULL;
+	free(tempValue->prev.items);
+	tempValue->prev.items = NULL;
 	free(tempValue);
 	*val = NULL;
 }
@@ -78,8 +67,8 @@ static void backwardAdd(Value* out, Value* fst, Value* snd)  {
 Value* vAdd(Value* self, Value* other) {
 	Value* out = newValue(self->data + other->data);
 	out->backward = BW_ADD;
-	writeValueArray(&out->prev, self);
-	writeValueArray(&out->prev, other);
+	APPEND_ARRAY(&out->prev, self);
+	APPEND_ARRAY(&out->prev, other);
 	return out;
 }
 
@@ -95,8 +84,8 @@ static void backwardMul(Value* out, Value* fst, Value* snd) {
 Value* vMul(Value* self, Value* other) {
 	Value* out = newValue(self->data * other->data);
 	out->backward = BW_MUL;
-	writeValueArray(&out->prev, self);
-	writeValueArray(&out->prev, other);
+	APPEND_ARRAY(&out->prev, self);
+	APPEND_ARRAY(&out->prev, other);
 	return out;
 }
 
@@ -111,8 +100,8 @@ static void backwardPow(Value* out, Value* fst, Value* snd) {
 Value* vPow(Value* self, Value* other) {
 	Value* out = newValue(pow(self->data, other->data));
 	out->backward = BW_POW;
-	writeValueArray(&out->prev, self);
-	writeValueArray(&out->prev, other);
+	APPEND_ARRAY(&out->prev, self);
+	APPEND_ARRAY(&out->prev, other);
 	return out;
 }
 
@@ -131,7 +120,7 @@ static void backwardRelu(Value* out, Value* fst) {
 Value* vRelu(Value* self) {
 	Value* out = newValue(self->data < 0 ? 0 : self->data);
 	out->backward = BW_RELU;
-	writeValueArray(&out->prev, self);
+	APPEND_ARRAY(&out->prev, self);
 	return out;
 }
 
@@ -158,73 +147,73 @@ Value* vDivFloat(Value* self, float other) {
 static void buildTopo(Value* val, ValueArray* topo, bool* visited) {
 	if (!visited[val->id - 1]) {
 		visited[val->id - 1] = true;
-		for (int i=0; i < val->prev.count; i++) {
-			buildTopo(val->prev.values[i], topo, visited);
+		for (size_t i=0; i < val->prev.count; i++) {
+			buildTopo(val->prev.items[i], topo, visited);
 		}
-		writeValueArray(topo, val);
+		APPEND_ARRAY(topo, val);
 	}
 }
 
 void freeDAG(Value* last, int fromId) {
-	ValueArray* topo = (ValueArray*)malloc(sizeof(ValueArray));
-	initValueArray(topo);
 	bool* visited = (bool*)calloc((ID_COUNTER), sizeof(bool));
+	ValueArray topo;
+	initValueArray(&topo);
 
-	buildTopo(last, topo, visited);
+	buildTopo(last, &topo, visited);
 
-	for (int i=0; i < topo->count; i++) {
-		if (topo->values[i] != NULL && topo->values[i]->id >= fromId) {
-			freeValue(&topo->values[i]);
-			assert(topo->values[i] == NULL);
+	for (size_t i=0; i < topo.count; i++) {
+		if (topo.items[i] != NULL && topo.items[i]->id >= fromId) {
+			freeValue(&topo.items[i]);
+			assert(topo.items[i] == NULL);
 		}
 	}
-
-	
-	freeValueArray(&topo);
-	assert(topo == NULL);
-	
+	free(topo.items);
 	free(visited);
 }
 
 void backward(Value* val) {
-	ValueArray* topo = (ValueArray*)malloc(sizeof(ValueArray));
-	initValueArray(topo);
 	bool* visited = (bool*)calloc((ID_COUNTER), sizeof(bool));
-
-	buildTopo(val, topo, visited);
+	
+	ValueArray topo;
+	initValueArray(&topo);
+	buildTopo(val, &topo, visited);
 
 	val->grad = 1;
 	
 	Value* currentVal;
-	for (int i=topo->count-1; i >= 0; i--) {
-		currentVal = topo->values[i];
-
+	size_t i = topo.count - 1;
+	while (true) {
+		currentVal = topo.items[i];
+		
 		switch (currentVal->backward) {
 			case BW_NULL:
-				continue;
+				break;
 			case BW_ADD:
 				backwardAdd(
-					currentVal, currentVal->prev.values[0], currentVal->prev.values[1]
+					currentVal, currentVal->prev.items[0], currentVal->prev.items[1]
 				);
-				continue;
+				break;
 			case BW_MUL:
 				backwardMul(
-					currentVal, currentVal->prev.values[0], currentVal->prev.values[1]
+					currentVal, currentVal->prev.items[0], currentVal->prev.items[1]
 				);
-				continue;
+				break;
 			case BW_POW:
 				backwardPow(
-					currentVal, currentVal->prev.values[0], currentVal->prev.values[1]
+					currentVal, currentVal->prev.items[0], currentVal->prev.items[1]
 				);
-				continue;
+				break;
 			case BW_RELU:
 				backwardRelu(
-					currentVal, currentVal->prev.values[0]
+					currentVal, currentVal->prev.items[0]
 				);
-				continue;
+				break;
 		}
+		if (i == 0) break;
+		i--;
+
 	}
+	free(topo.items);
 	free(visited);
-	freeValueArray(&topo);
 }
 
